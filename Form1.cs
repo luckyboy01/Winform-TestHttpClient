@@ -13,6 +13,7 @@ using System.Threading;
 using System.Windows.Forms;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace Winform_TestHttpClient
 {
@@ -47,7 +48,7 @@ namespace Winform_TestHttpClient
         /// <param name="header"></param>
         /// <param name="postData"></param>
         /// <returns></returns>
-        public static string GetHttpWebResponse(string url, string header, object postData)
+        public static string GetHttpWebResponse(string url, string header, object postData, string Method = "POST")
         {
             HttpWebRequest request = null;
             if (url.StartsWith("https", StringComparison.OrdinalIgnoreCase))
@@ -74,24 +75,27 @@ namespace Winform_TestHttpClient
                 request.Headers.Add("Authorization", header);
             }
 
-            request.Method = "POST";
+            request.Method = Method;
             request.ContentType = "application/json;charset=UTF-8";
             if (url.Contains("UploadCollectionRates") || url.Contains("Services/ScanCodeService.asmx"))
             {
                 request.ContentType = "text/xml;charset=utf-8";
             }
             //request.ContentLength = postData.Length;
-            request.Timeout = 5000;
+            request.Timeout = 100000;
 
             HttpWebResponse response = null;
 
             try
             {
-                StreamWriter swRequestWriter = new StreamWriter(request.GetRequestStream());
-                swRequestWriter.Write(postData);
+                if (Method != "GET")
+                {
+                    StreamWriter swRequestWriter = new StreamWriter(request.GetRequestStream());
+                    swRequestWriter.Write(postData);
 
-                if (swRequestWriter != null)
-                    swRequestWriter.Close();
+                    if (swRequestWriter != null)
+                        swRequestWriter.Close();
+                }
 
                 response = (HttpWebResponse)request.GetResponse();
                 using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
@@ -194,6 +198,56 @@ namespace Winform_TestHttpClient
             {
                 writer.WriteLine(msg);
             }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            int times = 0;
+            if (string.IsNullOrWhiteSpace(txtUrl.Text))
+            {
+                MessageBox.Show("请输入请求地址", "警告", MessageBoxButtons.OK);
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(txtPostData.Text))
+            {
+                MessageBox.Show("请输入请求报文", "警告", MessageBoxButtons.OK);
+                return;
+            }
+            int.TryParse(txtTime.Text, out times);
+            if (times <= 0)
+            {
+
+                MessageBox.Show("请求次数请输入正整数", "警告", MessageBoxButtons.OK);
+                return;
+            }
+            var res = string.Empty;
+            for (int i = 0; i < times; i++)
+            {
+                try
+                {
+                    res = GetHttpWebResponse(txtUrl.Text.Trim(), "", txtPostData.Text, "GET") + "\r\n";
+                }
+                catch (Exception ex)
+                {
+                    res = ex.Message + "\r\n";
+                }
+                Thread.Sleep(100);
+                AppendMsg(res);
+                //txtResult.Text = res;
+            }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            var result = GetHttpWebResponse("http://192.168.141.7:8083/Api/BasicAuthentication/login", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("admin:123")), null, "GET");
+            //var client = new HttpClient();
+            //var request = new HttpRequestMessage(HttpMethod.Get, "http://192.168.141.7:8083/Api/BasicAuthentication/login");
+            //request.Headers.Add("Authorization", "••••••");
+            //var content = new StringContent("", null, "application/json");
+            //request.Content = content;
+            //var response = await client.SendAsync(request);
+            //response.EnsureSuccessStatusCode();
+            //Console.WriteLine(await response.Content.ReadAsStringAsync());
         }
     }
 }
